@@ -1,124 +1,109 @@
+// app/page.tsx
 "use client";
 
-import NavBar from "@/components/ui/nav";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { FileText, Folder, Download, Calendar, HardDrive } from "lucide-react";
-import { useState, useEffect } from "react";
-
-interface FileItem {
-  Key: string;
-  Size: number;
-  LastModified: string;
-}
-
-interface ApiResponse {
-  files: FileItem[];
-  folders: string[];
-}
-
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-};
-
-const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
+import { useState } from "react";
+import { FileTable } from "@/components/FileTable";
+import { CreateFolderDialog } from "@/components/CreateFolderDialog";
+import { UploadDialog } from "@/components/UploadDialog";
+import { clientLogger } from "@/lib/logger";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { S3ConnectionStatus } from "@/components/S3ConnectionStatus";
 
 export default function Home() {
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [prefix, setPrefix] = useState("");
+  const [refresh, setRefresh] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch("http://localhost:3000/api/objects");
-        const result = await response.json();
-        setData(result);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const handleUploadSuccess = () => {
+    clientLogger.log("Upload successful, refreshing file list.");
+    setRefresh((prev) => !prev);
+  };
 
-    fetchData();
-  }, []);
+  const handleCreateFolderSuccess = () => {
+    clientLogger.log("Folder creation successful, refreshing file list.");
+    setRefresh((prev) => !prev);
+  };
 
-  if (loading) {
-    return (
-      <div>
-        <NavBar />
-        <div className="container mx-auto p-6">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleBreadcrumbClick = (index: number) => {
+    const newPrefix = prefix.split("/").slice(0, index + 1).join("/");
+    setPrefix(newPrefix === "" ? "" : newPrefix + "/");
+  };
+
+  const breadcrumbItems = prefix.split("/").filter(Boolean);
 
   return (
-    <div>
-      <NavBar />
-      <div className="container mx-auto p-6">
-        <h1 className="text-3xl font-bold mb-6">Files & Folders</h1>
-
-        <Card>
-          <CardContent className="p-0">
-            <div className="divide-y divide-gray-200">
-              {/* Folders */}
-              {data?.folders.map((folder) => (
-                <div
-                  key={folder}
-                  className="flex items-center p-4 hover:bg-gray-50"
-                >
-                  <Folder className="h-5 w-5 text-blue-500 mr-3" />
-                  <span className="font-medium text-gray-900">
-                    {folder.replace("/", "")}
-                  </span>
-                </div>
-              ))}
-
-              {/* Files */}
-              {data?.files.map((file) => (
-                <div
-                  key={file.Key}
-                  className="flex items-center p-4 hover:bg-gray-50"
-                >
-                  <FileText className="h-5 w-5 text-gray-500 mr-3" />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{file.Key}</p>
-                    <div className="flex items-center text-sm text-gray-500 mt-1">
-                      <HardDrive className="h-3 w-3 mr-1" />
-                      <span className="mr-4">{formatFileSize(file.Size)}</span>
-                      <Calendar className="h-3 w-3 mr-1" />
-                      <span>{formatDate(file.LastModified)}</span>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="mt-4 text-sm text-gray-500">
-          {data?.folders.length || 0} folders, {data?.files.length || 0} files
+    <div className="flex flex-col min-h-screen">
+      <header className="flex items-center justify-between p-4 border-b">
+        <h1 className="text-2xl font-bold">S3 File Manager</h1>
+        <div className="flex items-center gap-4">
+          <SignedIn>
+            <S3ConnectionStatus />
+            <UserButton />
+          </SignedIn>
+          <SignedOut>
+            <SignInButton />
+          </SignedOut>
         </div>
-      </div>
+      </header>
+      <main className="flex-1 p-4 md:p-6">
+        <SignedIn>
+          <div className="flex items-center justify-between mb-4">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="#" onClick={() => setPrefix("")}>
+                    Home
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                {breadcrumbItems.map((item, index) => (
+                  <>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem key={index}>
+                      {index === breadcrumbItems.length - 1 ? (
+                        <BreadcrumbPage>{item}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink
+                          href="#"
+                          onClick={() => handleBreadcrumbClick(index)}
+                        >
+                          {item}
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                  </>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+            <div className="flex gap-2">
+              <CreateFolderDialog
+                prefix={prefix}
+                onSuccess={handleCreateFolderSuccess}
+              />
+              <UploadDialog
+                prefix={prefix}
+                onSuccess={handleUploadSuccess}
+              />
+            </div>
+          </div>
+          <FileTable
+            prefix={prefix}
+            setPrefix={setPrefix}
+            refresh={refresh}
+          />
+        </SignedIn>
+        <SignedOut>
+          <div className="flex items-center justify-center h-full">
+            <p>Please sign in to manage your S3 files.</p>
+          </div>
+        </SignedOut>
+      </main>
     </div>
   );
 }

@@ -1,35 +1,86 @@
-import { NextResponse } from "next/server";
-import { NextRequest } from "next/server"; // Add this import
-import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+// app/api/objects/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import {
+  S3Client,
+  ListObjectsV2Command,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
+import { serverLogger } from "@/lib/logger";
+import { auth } from "@clerk/nextjs/server";
 
-const client = new S3Client({
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY as string,
-    secretAccessKey: process.env.AWS_SECRET_KEY as string,
-  },
-  region: "ap-south-1",
-});
+// The AWS SDK automatically finds credentials from the environment.
+export async function GET(req: NextRequest) {
+  const s3Client = new S3Client({});
+  const { userId } = auth();
+  if (!userId) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
 
-export async function GET(request: NextRequest) {
-  const prefix = request.nextUrl.searchParams.get("prefix") ?? ""; // Use empty string instead of undefined
+  const { searchParams } = new URL(req.url);
+  const prefix = searchParams.get("prefix") || "";
+  const cursor = searchParams.get("cursor") || undefined;
 
-  const command = new ListObjectsV2Command({
-    Bucket: "uis3-bucket",
-    Delimiter: "/",
-    Prefix: prefix,
-  });
+  serverLogger.log(`Fetching objects for prefix: "${prefix}"`, { cursor });
 
-  const result = await client.send(command);
-  console.log(result);
+  try {
+    const command = new ListObjectsV2Command({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Prefix: prefix,
+      Delimiter: "/",
+      ContinuationToken: cursor,
+    });
 
-  const rootFiles =
-    result.Contents?.map((e) => ({
-      Key: e.Key,
-      Size: e.Size,
-      LastModified: e.LastModified,
-    })) || [];
+    const { Contents, CommonPrefixes, NextContinuationToken } =
+      await s3Client.send(command);
 
-  const rootFolders = result.CommonPrefixes?.map((e) => e.Prefix) || [];
+    const files = (Contents || []).map((file) => ({
+      key: file.Key,
+      size: file.Size,
+      lastModified: file.LastModified,
+      type: "file",
+    }));
 
-  return NextResponse.json({ files: rootFiles, folders: rootFolders }); // Changed "folder" to "folders" for consistency
+    const folders = (CommonPrefixes || []).map((folder) => ({
+      key: folder.Prefix,
+      type: "folder",
+    }));
+
+    return NextResponse.json({
+      files: [...folders, ...files],
+      nextCursor: NextContinuationToken,
+    });
+  } catch (error) {
+    serverLogger.error("Error fetching objects from S3", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const s3Client = new S3Client({});
+  const { userId } = auth();
+  if (!userId) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  const { key } = await req.json();
+
+  if (!key) {
+    return new NextResponse("Key is required", { status: 400 });
+  }
+
+  serverLogger.log(`Deleting object with key: "${key}"`);
+
+  try {
+    const command = new DeleteObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: key,
+    });
+
+    await s3Client.send(command);
+
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    serverLogger.error("Error deleting object from S3", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
+  }
 }

@@ -1,33 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# S3 File Manager
+
+This is a simple S3 file manager built with Next.js, TypeScript, and Tailwind CSS. It allows you to browse, upload, download, and delete files in an S3 bucket.
+
+## Features
+
+*   **Authentication**: Uses [Clerk](https://clerk.com/) for user authentication.
+*   **File Browsing**: Browse files and folders in your S3 bucket.
+*   **File Upload**: Upload files to your S3 bucket with a drag-and-drop interface.
+*   **File Download**: Download files from your S3 bucket.
+*   **File Deletion**: Delete files from your S3 bucket.
+*   **Folder Creation**: Create new folders in your S3 bucket.
+*   **S3 Connection Status**: Check the connection status to your S3 bucket.
+*   **Error Handling**: Provides user-friendly error messages and feedback.
+*   **Loading Indicators**: Shows loading indicators when performing actions.
+
+## Technologies Used
+
+*   [Next.js](https://nextjs.org/)
+*   [TypeScript](https://www.typescriptlang.org/)
+*   [Tailwind CSS](https://tailwindcss.com/)
+*   [Clerk](https://clerk.com/)
+*   [AWS SDK for JavaScript v3](https://aws.amazon.com/sdk-for-javascript/)
+*   [shadcn/ui](https://ui.shadcn.com/)
+*   [Lucide React](https://lucide.dev/guide/packages/lucide-react)
+*   [Sonner](https://sonner.emilkowal.ski/)
 
 ## Getting Started
 
-First, run the development server:
+First, you need to set up your environment variables. Create a `.env.local` file in the root of the project and add the following variables:
+
+```
+S3_BUCKET_NAME=your-s3-bucket-name
+AWS_ACCESS_KEY_ID=your-aws-access-key-id
+AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
+AWS_REGION=your-aws-region
+
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your-clerk-publishable-key
+CLERK_SECRET_KEY=your-clerk-secret-key
+```
+
+Then, install the dependencies:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+```
+
+Finally, run the development server:
+
+```bash
 pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
 ## Deploy on Vercel
 
